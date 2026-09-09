@@ -19,9 +19,9 @@ jobs:
   construir:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 20
           cache: npm
@@ -46,7 +46,7 @@ jobs:
       # crear el sitio exige permisos de administración que GITHUB_TOKEN no tiene, y la ejecución
       # muere con "Create Pages site failed: Resource not accessible by integration". Es un paso
       # único; a partir de ahí este flujo publica solo.
-      - uses: actions/configure-pages@v5
+      - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v3
         with:
           path: out
