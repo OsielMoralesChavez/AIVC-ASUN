@@ -41,12 +41,12 @@ jobs:
         # scripts y estilos en _next/.
         run: touch out/.nojekyll
 
+      # Pages tiene que estar activado A MANO una vez, en Settings -> Pages -> Source: GitHub
+      # Actions. Se probó `enablement: true` para que lo activara el propio flujo y no funciona:
+      # crear el sitio exige permisos de administración que GITHUB_TOKEN no tiene, y la ejecución
+      # muere con "Create Pages site failed: Resource not accessible by integration". Es un paso
+      # único; a partir de ahí este flujo publica solo.
       - uses: actions/configure-pages@v5
-        with:
-          # Habilita Pages en el repositorio si aún no lo está, en vez de fallar pidiendo que
-          # alguien lo active a mano en Settings. Sin esto la primera ejecución siempre muere con
-          # "Get Pages site failed ... verify that the repository has Pages enabled".
-          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: out
