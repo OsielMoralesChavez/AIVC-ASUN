@@ -9,6 +9,8 @@
  * El tamaño lo decide siempre el CSS del lugar donde se usa (`.sidebar-logo img`,
  * `.auth-logo-row img`...), no un estilo en línea aquí.
  */
+import { withBasePath } from "../utils/basePath";
+
 interface UnirLogoProps {
   /** "on-dark" usa la variante negativa (blanca); "on-light" la de color. */
   variant?: "on-dark" | "on-light";
@@ -23,7 +25,10 @@ const SOURCES = {
 export function UnirLogo({ variant = "on-light", className }: UnirLogoProps) {
   return (
     <span className={className}>
-      <img src={SOURCES[variant]} alt="UNIR — La universidad en internet" />
+      {/* `withBasePath` no es decorativo: publicado en GitHub Pages el sitio cuelga de
+          /<repo>, y un `<img src="/...">` se pediría a la raíz del dominio. Next reescribe los
+          enlaces y `next/image`, pero no el `src` de una etiqueta `img` normal. */}
+      <img src={withBasePath(SOURCES[variant])} alt="UNIR — La universidad en internet" />
     </span>
   );
 }

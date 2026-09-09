@@ -3077,7 +3077,7 @@ html[data-theme="dark"] .dashboard-page > .dashboard-grid > .panel:not(.metric-c
   background: radial-gradient(circle at 18% 20%, rgba(37, 99, 235, 0.28), transparent 55%),
     radial-gradient(circle at 82% 78%, rgba(29, 78, 216, 0.24), transparent 55%),
     linear-gradient(100deg, rgba(2, 6, 23, 0.6) 0%, rgba(2, 6, 23, 0.75) 55%, rgba(2, 6, 23, 0.9) 100%),
-    url("/images/backgrounds/fondo.webp") center/cover no-repeat, var(--color-bg);
+    var(--imagen-fondo-auth, url("/images/backgrounds/fondo.webp")) center/cover no-repeat, var(--color-bg);
   color: var(--color-text);
 }
 @media (min-width: 900px) {

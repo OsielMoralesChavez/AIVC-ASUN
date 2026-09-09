@@ -1,5 +1,7 @@
 "use client";
 
+import { withBasePath } from "../utils/basePath";
+
 import { useState } from "react";
 
 /**
@@ -88,7 +90,7 @@ const COURSES: Course[] = [
       {
         title: "Módulo 1 · El ecosistema Claude",
         description: "Anthropic y Claude, las cuatro formas de trabajar (Chat, Cowork, Design, Claude Code), cómo elegir modelo (Haiku/Sonnet/Opus/Fable) y plan (Free/Pro/Max).",
-        src: "/cursos-actualizacion/uso-de-claude-ai/modulo-1-ecosistema-claude.png",
+        src: withBasePath("/cursos-actualizacion/uso-de-claude-ai/modulo-1-ecosistema-claude.png"),
         alt: "Infografía: Módulo 1 — El ecosistema Claude. Herramienta + modelo + plan: elige la combinación adecuada.",
       },
     ],
