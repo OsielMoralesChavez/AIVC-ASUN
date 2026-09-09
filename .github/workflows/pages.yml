@@ -42,6 +42,11 @@ jobs:
         run: touch out/.nojekyll
 
       - uses: actions/configure-pages@v5
+        with:
+          # Habilita Pages en el repositorio si aún no lo está, en vez de fallar pidiendo que
+          # alguien lo active a mano en Settings. Sin esto la primera ejecución siempre muere con
+          # "Get Pages site failed ... verify that the repository has Pages enabled".
+          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: out
