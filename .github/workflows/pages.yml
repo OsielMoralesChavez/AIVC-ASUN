@@ -1,0 +1,57 @@
+name: Publicar en GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Una publicación a la vez; si llegan dos seguidas, gana la última sin cancelar la que ya empezó.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  construir:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Construir la exportación estática
+        # El prefijo sale del nombre real del repositorio: en Pages el sitio vive en
+        # usuario.github.io/<repo>, así que sin él las hojas de estilo y los scripts se pedirían
+        # a rutas que no existen y la página saldría en blanco.
+        run: npm run build
+        env:
+          NEXT_PUBLIC_BASE_PATH: /${{ github.event.repository.name }}
+
+      - name: Evitar que Pages procese la salida con Jekyll
+        # Sin este archivo, Pages ignora todo lo que empiece por guion bajo — y Next publica sus
+        # scripts y estilos en _next/.
+        run: touch out/.nojekyll
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: out
+
+  publicar:
+    needs: construir
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.despliegue.outputs.page_url }}
+    steps:
+      - id: despliegue
+        uses: actions/deploy-pages@v4

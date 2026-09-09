@@ -1,0 +1,3516 @@
+@import "tailwindcss";
+
+/*
+ * Fase 3: los ~30 componentes portados de frontend/ siguen usando exactamente las mismas
+ * clases que antes (.btn, .panel, .sidebar, .option-card...) escritas a mano abajo — no se
+ * reescribió ni una línea de JSX. Este bloque se deja deliberadamente SIN envolver en
+ * `@layer` para que su cascada gane siempre sobre el preflight/utilidades de Tailwind
+ * (las capas de Tailwind tienen menor prioridad que el CSS sin capa), garantizando que el
+ * diseño visual existente no cambie. `@theme` sí es obligatorio a nivel superior: además de
+ * quedar disponibles vía var(--color-primary) como antes, estos tokens generan utilidades de
+ * Tailwind a juego (bg-primary, text-primary-dark, rounded, shadow-md...) para uso futuro.
+ */
+@theme {
+  /* Paleta azul/gris original de UNIR — se restauró tras probar una variante "Mindora"
+     (verde/rosa); se conservan de esa exploración la tipografía (Inter/DM Sans) y el radio
+     de esquinas más redondeado. */
+  --color-primary: #1f4e78;
+  --color-primary-dark: #163a59;
+  --color-primary-soft: #eaf1f8;
+  --color-secondary: #2e75b6;
+  --color-secondary-soft: #eef4f9;
+  --color-bg: #eef1f6;
+  --color-surface: #f4f6fa;
+  --color-surface-alt: #e8ecf3;
+  --color-border: #d7dee6;
+  --color-text: #16202b;
+  --color-text-muted: #5b6470;
+  --color-danger: #b3261e;
+  --color-danger-bg: #fdecea;
+  --color-danger-border: #f2c1bd;
+  --color-warning: #92400e;
+  --color-warning-bg: #fef3c7;
+  --color-warning-border: #f5dca0;
+  --color-success: #1e6b3c;
+  --color-success-bg: #e6f4ea;
+  --color-info-bg: #eaf2fa;
+  --color-info-border: #cfe0ef;
+  --color-sidebar-bg: #163a59;
+
+  /* Radios — escala compartida por toda la interfaz (tarjetas, botones, inputs, modales). */
+  --radius-sm: 8px;
+  --radius: 14px;
+  --radius-lg: 22px;
+
+  /* Espaciado — escala de 4px, para que separaciones nuevas no queden "a ojo" respecto a las
+     existentes (las clases ya escritas conservan sus valores en rem; esta escala es para
+     estilos nuevos del rediseño). */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-8: 3rem;
+
+  /* Sombras planas (glass/dropdowns/otros usos existentes) — sin cambios de valor. */
+  --shadow-sm: 0 1px 2px rgba(15, 30, 50, 0.06);
+  --shadow: 0 1px 3px rgba(20, 30, 45, 0.08), 0 1px 2px rgba(20, 30, 45, 0.06);
+  --shadow-md: 0 6px 20px rgba(22, 58, 89, 0.12), 0 2px 6px rgba(22, 58, 89, 0.08);
+  --shadow-lg: 0 14px 36px rgba(22, 58, 89, 0.16), 0 4px 10px rgba(22, 58, 89, 0.1);
+
+  /*
+   * Neumorfismo: cada superficie "flota" sobre --color-bg gracias a un par de sombras — una
+   * clara (simula luz desde arriba-izquierda) y una oscura (simula sombra proyectada hacia
+   * abajo-derecha). Tres niveles de elevación (1 = sutil, "en reposo"; 2 = tarjeta/panel
+   * normal; 3 = modal/elemento flotante) más la variante "presionada" (sombras hacia ADENTRO,
+   * con `inset`) para inputs, dropzones y controles seleccionados — así lo hundido se
+   * distingue de lo elevado sin depender de un solo tono de gris.
+   * Los offsets son pequeños y la difuminación moderada a propósito: el objetivo es dar
+   * profundidad legible, no una interfaz "de plastilina" con relieve exagerado.
+   */
+  --neu-light: rgba(255, 255, 255, 0.75);
+  --neu-dark: rgba(163, 177, 198, 0.55);
+  --neu-1: 3px 3px 6px var(--neu-dark), -3px -3px 6px var(--neu-light);
+  --neu-2: 6px 6px 14px var(--neu-dark), -6px -6px 14px var(--neu-light);
+  --neu-3: 10px 10px 24px var(--neu-dark), -8px -8px 20px var(--neu-light);
+  --neu-pressed: inset 3px 3px 7px var(--neu-dark), inset -3px -3px 7px var(--neu-light);
+  --neu-pressed-sm: inset 2px 2px 4px var(--neu-dark), inset -2px -2px 4px var(--neu-light);
+
+  /*
+   * Tokens propios del sidebar. Son los ÚNICOS tokens neumórficos nuevos que hacía falta añadir:
+   * el sidebar es la única superficie azul oscura de la app, y un par de sombras calculado para
+   * el gris claro del canvas (--neu-light/--neu-dark) simplemente no se ve sobre él. El resto de
+   * la barra (radios, tipografía, transiciones, anillo de foco, acento) reutiliza los tokens que
+   * ya usan las tarjetas y el topbar — deliberadamente NO se creó un segundo sistema paralelo,
+   * porque dos juegos de tokens casi idénticos se desincronizan y romperían la coherencia que
+   * justamente se busca.
+   */
+  /*
+   * ESTE ERA EL BUG DE LAS PALETAS. Antes estos tokens llevaban valores azules literales
+   * (#19496d, #2671b4…) declarados SOLO aquí y en el bloque de modo oscuro; ninguna paleta los
+   * redefinía, así que al elegir "roja" o "vino" cambiaba el fondo del sidebar pero las opciones,
+   * el hover, el activo y la superficie de marca seguían azules.
+   *
+   * Ahora se DERIVAN por indirección de dos anclas que cada paleta sí define
+   * (`--color-sidebar-bg` y `--sidebar-accent`). Las custom properties se resuelven en el punto
+   * de uso con el valor vigente, así que basta con que una paleta cambie las anclas para que
+   * superficies, hover, bordes y sombras la sigan solos. Añadir una paleta nueva cuesta dos
+   * líneas, no seis, y es imposible que un token se quede con el color de otra paleta.
+   */
+  --sidebar-accent: var(--color-secondary);
+  --sidebar-surface: color-mix(in srgb, var(--color-sidebar-bg) 86%, white);
+  --sidebar-surface-hover: color-mix(in srgb, var(--color-sidebar-bg) 78%, white);
+  --sidebar-active: var(--sidebar-accent);
+  --sidebar-text: #ffffff;
+  --sidebar-text-secondary: color-mix(in srgb, var(--color-sidebar-bg) 22%, white);
+  --sidebar-icon: var(--sidebar-text);
+  --sidebar-indicator: #ffffff;
+  --sidebar-border: color-mix(in srgb, white 10%, transparent);
+  --sidebar-shadow-dark: color-mix(in srgb, var(--color-sidebar-bg) 55%, black);
+  --sidebar-shadow-light: color-mix(in srgb, var(--color-sidebar-bg) 72%, white);
+  --sidebar-raised: 6px 6px 14px var(--sidebar-shadow-dark), -4px -4px 12px var(--sidebar-shadow-light);
+  --sidebar-raised-sm: 4px 4px 9px var(--sidebar-shadow-dark), -3px -3px 8px var(--sidebar-shadow-light);
+  --sidebar-inset: inset 4px 4px 9px color-mix(in srgb, var(--sidebar-accent) 45%, black),
+    inset -3px -3px 8px color-mix(in srgb, var(--sidebar-accent) 55%, white);
+
+  /*
+   * Colores de datos. Se derivan de la paleta, así que las gráficas la siguen SIN JavaScript: el
+   * SVG usa `fill="var(--color-chart-N)"` y el navegador recalcula al cambiar `data-palette`.
+   * Eso elimina de raíz el problema de "colores calculados solo en el primer render".
+   * Cuatro series como máximo, según la regla de carga cognitiva.
+   */
+  --color-chart-1: var(--color-primary);
+  --color-chart-2: var(--color-secondary);
+  --color-chart-3: color-mix(in srgb, var(--color-secondary) 55%, white);
+  --color-chart-4: color-mix(in srgb, var(--color-primary) 40%, var(--color-warning));
+  --color-chart-grid: var(--color-border);
+
+  --focus-ring: 0 0 0 3px rgba(46, 117, 182, 0.45);
+  /* Foco sobre el azul oscuro del sidebar: el anillo azul de --focus-ring se pierde ahí. */
+  --focus-ring-on-dark: 0 0 0 2px rgba(11, 31, 58, 0.9), 0 0 0 4px #ffffff;
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --font-heading: var(--font-proeduca-family), "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-body: var(--font-proeduca-family), "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+html[data-theme="dark"] {
+  --color-primary: #4f92cb;
+  --color-primary-dark: #8fc4f0;
+  --color-primary-soft: #17283a;
+  --color-secondary: #4a90d9;
+  --color-secondary-soft: #1b2f42;
+  --color-bg: #131c29;
+  --color-surface: #17222f;
+  --color-surface-alt: #1d2a38;
+  --color-border: #2c3d4f;
+  --color-text: #e7edf3;
+  --color-text-muted: #93a5b8;
+  --color-danger: #f2685f;
+  --color-danger-bg: #3a1f1e;
+  --color-danger-border: #5c2e2b;
+  --color-warning: #f0b429;
+  --color-warning-bg: #3a2e14;
+  --color-warning-border: #5c4a1f;
+  --color-success: #4caf7d;
+  --color-success-bg: #16311f;
+  --color-info-bg: #16283a;
+  --color-info-border: #234a63;
+  --color-sidebar-bg: #0b1420;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 14px 36px rgba(0, 0, 0, 0.5), 0 4px 10px rgba(0, 0, 0, 0.35);
+
+  /* En oscuro la "luz" viene de un gris más claro que el fondo, no de blanco puro — blanco
+     puro a esta opacidad se ve como un brillo pegado encima, no como relieve. */
+  --neu-light: rgba(255, 255, 255, 0.045);
+  --neu-dark: rgba(0, 0, 0, 0.55);
+
+  /* En oscuro solo se ajusta la MEZCLA (las superficies suben menos y las sombras son más duras
+     contra un canvas también oscuro). Los colores siguen derivándose de las anclas de la paleta,
+     así que no se vuelve a fijar ningún azul literal. */
+  --sidebar-surface: color-mix(in srgb, var(--color-sidebar-bg) 90%, white);
+  --sidebar-surface-hover: color-mix(in srgb, var(--color-sidebar-bg) 84%, white);
+  --sidebar-text-secondary: color-mix(in srgb, var(--color-sidebar-bg) 32%, white);
+  --sidebar-shadow-dark: color-mix(in srgb, var(--color-sidebar-bg) 35%, black);
+  --sidebar-shadow-light: color-mix(in srgb, var(--color-sidebar-bg) 80%, white);
+}
+
+/* Paleta corporativa — inspirada en el logotipo de UNIR y la referencia de login (negro/azul muy
+   oscuro + dorado), como alternativa opcional a la paleta azul original (ver "Personalizar
+   perfil"). Solo reemplaza los tokens de acento/color — deja intactos radios, sombras
+   neumórficas y tipografía, que son compartidos por ambas paletas. */
+html[data-palette="corporate"] {
+  --sidebar-accent: #d6a34c;
+
+  --color-primary: #b8863a;
+  --color-primary-dark: #8f6a2d;
+  --color-primary-soft: #f5ecd8;
+  --color-secondary: #b8863a;
+  --color-secondary-soft: #f7f0e0;
+  --color-sidebar-bg: #10151f;
+}
+html[data-theme="dark"][data-palette="corporate"] {
+  --sidebar-accent: #d6a34c;
+
+  --color-primary: #d6a34c;
+  --color-primary-dark: #e8bd6e;
+  --color-primary-soft: #241c10;
+  --color-secondary: #d6a34c;
+  --color-secondary-soft: #241c10;
+  --color-sidebar-bg: #0b1420;
+}
+
+/* Paleta roja — inspirada en el mismo panel de referencia de mood board (negro/rojo/blanco). */
+html[data-palette="red"] {
+  --sidebar-accent: #e0294f;
+
+  --color-primary: #c2123f;
+  --color-primary-dark: #96072f;
+  --color-primary-soft: #fbe4e9;
+  --color-secondary: #c2123f;
+  --color-secondary-soft: #fceaee;
+  --color-sidebar-bg: #1e1e27;
+}
+html[data-theme="dark"][data-palette="red"] {
+  --sidebar-accent: #f2415f;
+
+  --color-primary: #f2415f;
+  --color-primary-dark: #f77c92;
+  --color-primary-soft: #2e1218;
+  --color-secondary: #f2415f;
+  --color-secondary-soft: #2e1218;
+  --color-sidebar-bg: #16161d;
+}
+
+/* Paleta vino — negro/borgoña/blanco, la otra referencia de mood board. */
+html[data-palette="burgundy"] {
+  --sidebar-accent: #a8324b;
+
+  --color-primary: #7a0620;
+  --color-primary-dark: #500015;
+  --color-primary-soft: #f4e2e6;
+  --color-secondary: #7a0620;
+  --color-secondary-soft: #f7e9ec;
+  --color-sidebar-bg: #170406;
+}
+html[data-theme="dark"][data-palette="burgundy"] {
+  --sidebar-accent: #c94b63;
+
+  --color-primary: #c94b63;
+  --color-primary-dark: #dd7a8d;
+  --color-primary-soft: #2c1116;
+  --color-secondary: #c94b63;
+  --color-secondary-soft: #2c1116;
+  --color-sidebar-bg: #120306;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  line-height: 1.55;
+  transition: background-color 0.2s var(--ease-standard), color 0.2s var(--ease-standard);
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+/* El color heredado va en `@layer base` a propósito, no aquí fuera con el resto del archivo.
+   Sin capa, esta regla gana a las utilidades de Tailwind (que viven en `@layer utilities`) y
+   anulaba `text-white`, `text-slate-700`… en TODAS las pantallas portadas del Calificador — el
+   botón «+ Nueva materia» salía con texto oscuro sobre fondo oscuro. Dentro de `base` sigue
+   pisando el `color: buttontext` del navegador, que es lo único que debía corregir, pero deja
+   ganar a cualquier utilidad de color explícita. */
+@layer base {
+  button,
+  input,
+  select,
+  textarea {
+    color: inherit;
+  }
+}
+
+h1,
+h2,
+h3,
+.sidebar-brand,
+.btn {
+  font-family: var(--font-heading);
+}
+
+a {
+  color: var(--color-secondary);
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* El shell ocupa exactamente el alto del viewport y no se desplaza como página — solo
+   `.app-main` (el contenido, ver más abajo) tiene scroll propio. Sidebar y topbar quedan fijos
+   sin necesidad de `position: fixed`: al no ser ellos los que se desplazan, nunca se mueven. */
+.app-layout {
+  display: flex;
+  height: 100%;
+  max-height: 100vh;
+  align-items: stretch;
+  overflow: hidden;
+}
+
+/* Superficie neumórfica oscura. La sombra hacia el contenido es deliberadamente suave: separa
+   los dos planos sin dibujar una franja negra sobre el dashboard. */
+.sidebar {
+  width: 272px;
+  flex-shrink: 0;
+  height: 100%;
+  /* NO desplaza la columna entera: desplazaba también el logo y el nombre de la aplicación, que
+     se salían de pantalla en cuanto los cuatro grupos estaban desplegados (medido: 61 px de
+     recorrido, el bloque de marca pasaba de top 24 a top -37). Lo que desplaza es solo la
+     navegación (.sidebar-nav-wrap), así que la marca queda siempre fija arriba. */
+  overflow: hidden;
+  /* Azul sólido con un leve degradado vertical (más profundo hacia abajo) en vez de un tono
+     plano — sigue siendo una superficie sólida y elegante, solo con algo más de profundidad. */
+  background: linear-gradient(180deg, color-mix(in srgb, var(--color-sidebar-bg) 100%, white 4%) 0%, var(--color-sidebar-bg) 60%);
+  border-right: 1px solid var(--sidebar-border);
+  box-shadow: 10px 0 24px color-mix(in srgb, var(--color-sidebar-bg) 70%, transparent),
+    inset -1px 0 color-mix(in srgb, white 5%, transparent);
+  padding: 1.5rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  z-index: 20;
+  transition: width 0.22s var(--ease-standard), background-color 0.2s var(--ease-standard);
+}
+
+/* Bloque de marca: una sola superficie elevada que contiene logo y nombre de la app, en vez de
+   dos elementos sueltos sobre el fondo. La sombra va en el contenedor, nunca en el propio SVG. */
+.sidebar-brand-block {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  align-items: flex-start;
+  min-height: 72px;
+  padding: 1rem;
+  margin-bottom: 0.5rem;
+  border: 1px solid var(--sidebar-border);
+  border-radius: var(--radius);
+  background: var(--sidebar-surface);
+  box-shadow: var(--sidebar-raised);
+}
+
+.sidebar-logo {
+  align-self: flex-start;
+  display: block;
+}
+.sidebar-logo img {
+  height: 1.75rem;
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.sidebar-brand {
+  color: var(--sidebar-text);
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 0.95rem;
+  line-height: 1.35;
+}
+
+/* La marca ya se separa por su propia superficie elevada — el divisor blanco duro sobraba. */
+.sidebar-brand-divider {
+  display: none;
+}
+
+.sidebar-nav-wrap {
+  position: relative;
+  /* El único elemento que desplaza. `min-height: 0` es imprescindible: sin él un hijo flexible
+     no baja de su altura de contenido y el desbordamiento se escaparía otra vez a la columna. */
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  /* Margen negativo + relleno: la barra de desplazamiento queda pegada al borde del sidebar en
+     vez de recortar el indicador líquido de la entrada activa. */
+  margin: 0 -0.35rem;
+  padding: 0 0.35rem;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, white 22%, transparent) transparent;
+}
+
+.sidebar-nav-wrap::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar-nav-wrap::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, white 22%, transparent);
+  border-radius: 999px;
+}
+
+.sidebar-nav-wrap::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-liquid-group {
+  position: absolute !important;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.sidebar-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: 8px;
+}
+
+.sidebar-nav {
+  position: relative;
+  z-index: 1;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+/* Grupos plegables. Los títulos son separadores discretos, no otro nivel de navegación: van en
+   el gris secundario del propio sidebar (--sidebar-text-secondary), sin superficie ni relieve
+   propios, para que la jerarquía siga siendo entrada activa > entrada inactiva > título. */
+.sidebar-group + .sidebar-group {
+  margin-top: 0.75rem;
+}
+.sidebar-group-heading {
+  margin: 0 0 0.25rem;
+  font-size: inherit;
+  font-weight: inherit;
+}
+.sidebar-group-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.3rem 0.6rem;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--sidebar-text-secondary);
+  transition: color 0.18s var(--ease-standard), background-color 0.18s var(--ease-standard);
+}
+.sidebar-group-toggle:hover {
+  color: var(--sidebar-text);
+  background: var(--sidebar-surface-hover);
+}
+.sidebar-group-toggle:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring-on-dark);
+}
+.sidebar-group-title {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sidebar-group-caret {
+  display: inline-flex;
+  flex-shrink: 0;
+  transition: transform 0.2s var(--ease-standard);
+}
+.sidebar-group-caret svg {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+.sidebar-group-caret[data-open="false"] {
+  transform: rotate(-90deg);
+}
+.sidebar-group-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+/*
+ * Jerarquía deliberada de tres niveles — inactiva < hover < activa. Las inactivas NO llevan
+ * elevación: si todas flotaran a la vez, la seleccionada dejaría de distinguirse y el
+ * neumorfismo se volvería ruido en vez de información.
+ *  - inactiva: plana sobre el fondo del sidebar
+ *  - hover:    superficie más clara + elevación ligera
+ *  - activa:   azul institucional + sombra INTERIOR (hundida) + barra lateral blanca
+ * La barra lateral y el peso tipográfico hacen que el estado activo no dependa solo del color.
+ */
+.sidebar-link {
+  position: relative;
+  width: 100%;
+  min-height: 56px;
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  padding: 0.875rem 1rem;
+  color: var(--sidebar-text);
+  cursor: pointer;
+  display: grid;
+  grid-template-columns: 1.375rem minmax(0, 1fr);
+  align-items: start;
+  gap: 0.75rem;
+  transition: background-color 0.18s var(--ease-standard), box-shadow 0.18s var(--ease-standard),
+    color 0.18s var(--ease-standard);
+}
+.sidebar-link:hover {
+  background: var(--sidebar-surface-hover);
+  box-shadow: var(--sidebar-raised-sm);
+}
+.sidebar-link:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring-on-dark);
+}
+.sidebar-link[data-active="true"] {
+  color: var(--sidebar-text);
+  background: var(--sidebar-active);
+  border-color: var(--sidebar-border);
+  box-shadow: var(--sidebar-inset);
+}
+/* Indicador lateral: refuerzo no cromático del estado activo. */
+.sidebar-link[data-active="true"]::before {
+  content: "";
+  position: absolute;
+  top: 0.875rem;
+  bottom: 0.875rem;
+  left: 5px;
+  width: 4px;
+  border-radius: 999px;
+  background: var(--sidebar-indicator);
+}
+.sidebar-link[data-active="true"]:hover {
+  box-shadow: var(--sidebar-inset);
+}
+.sidebar-link-icon {
+  color: var(--sidebar-icon);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.375rem;
+  height: 1.375rem;
+  flex-shrink: 0;
+  /* Alineado con la primera línea del título, no con el bloque completo. */
+  margin-top: 0.05rem;
+  transition: transform 0.18s var(--ease-standard);
+}
+.sidebar-link-icon svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+.sidebar-link:hover .sidebar-link-icon {
+  transform: scale(1.08);
+}
+.sidebar-link-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+.sidebar-link-label {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+/* Sin ExtraLight ni opacidades bajas: sobre azul oscuro se vuelven ilegibles. El color propio
+   ya da la jerarquía y conserva contraste suficiente. */
+.sidebar-link-desc {
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--sidebar-text-secondary);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.sidebar-link[data-active="true"] .sidebar-link-desc {
+  color: color-mix(in srgb, var(--sidebar-text) 92%, transparent);
+}
+
+.app-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+/* Única región con scroll propio del shell: `min-height: 0` es imprescindible aquí — sin él, un
+   hijo flex nunca se encoge por debajo del alto de su contenido y el `overflow-y: auto` no
+   tendría ningún alto limitado sobre el cual activarse. */
+.app-main {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+@media (min-width: 769px) {
+  .sidebar[data-collapsed="true"] {
+    width: 84px;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+  /* Contraído conserva el símbolo institucional en vez de esconder la marca por completo: el
+     logo se recorta al cuadrado con object-fit, nunca se deforma. */
+  .sidebar[data-collapsed="true"] .sidebar-brand-block {
+    padding: 0.6rem;
+    align-items: center;
+    min-height: 56px;
+  }
+  .sidebar[data-collapsed="true"] .sidebar-brand {
+    display: none;
+  }
+  .sidebar[data-collapsed="true"] .sidebar-logo img {
+    height: 1.5rem;
+    object-fit: contain;
+    object-position: left center;
+    width: 2rem;
+  }
+  .sidebar[data-collapsed="true"] .sidebar-link {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    padding: 0.875rem 0.5rem;
+  }
+  .sidebar[data-collapsed="true"] .sidebar-link-text {
+    display: none;
+  }
+  .sidebar[data-collapsed="true"] .sidebar-link-icon {
+    margin-top: 0;
+  }
+  /* Contraído no hay dónde escribir el título del grupo ni forma de ver qué está plegado, así
+     que el separador desaparece y todas las entradas quedan visibles (ver Sidebar.tsx: `open`
+     se fuerza a true cuando `collapsed`). Se conserva un respiro entre grupos. */
+  .sidebar[data-collapsed="true"] .sidebar-group-heading {
+    display: none;
+  }
+  .sidebar[data-collapsed="true"] .sidebar-group + .sidebar-group {
+    margin-top: 0.6rem;
+    padding-top: 0.6rem;
+    border-top: 1px solid var(--sidebar-border);
+  }
+  /* La barra lateral del activo estorba en un botón centrado y angosto. */
+  .sidebar[data-collapsed="true"] .sidebar-link[data-active="true"]::before {
+    display: none;
+  }
+  .sidebar-mobile-toggle {
+    display: none;
+  }
+}
+
+/* La capa superpuesta y el botón de cierre solo existen en el drawer móvil. */
+.sidebar-overlay,
+.sidebar-mobile-close {
+  display: none;
+}
+
+/*
+ * Móvil: el sidebar es un drawer que entra desde la izquierda sobre el contenido, no una barra
+ * inferior. Se abre con el botón de menú del topbar (el mismo que contrae en escritorio) y se
+ * cierra al tocar fuera, con Escape, con el botón de cierre o al elegir una sección — la lógica
+ * de foco y de bloqueo de scroll vive en components/Sidebar.tsx.
+ */
+@media (max-width: 768px) {
+  .app-layout {
+    /* Se mantiene en fila: el drawer va superpuesto (fixed), no dentro del flujo. */
+    flex-direction: row;
+  }
+
+  .sidebar-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 45;
+    background: rgba(6, 18, 30, 0.55);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.22s var(--ease-standard);
+  }
+  .sidebar-overlay[data-open="true"] {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: auto;
+    z-index: 50;
+    width: 85%;
+    max-width: 320px;
+    height: 100%;
+    padding: 1.25rem 1rem;
+    transform: translateX(-100%);
+    transition: transform 0.24s var(--ease-standard);
+    box-shadow: 12px 0 28px rgba(5, 22, 36, 0.35);
+  }
+  .sidebar[data-mobile-open="true"] {
+    transform: translateX(0);
+  }
+  /* Cerrado, el drawer sale del orden de tabulación en vez de quedar enfocable fuera de pantalla. */
+  .sidebar:not([data-mobile-open="true"]) {
+    visibility: hidden;
+  }
+
+  /* El ancho contraído es un control de escritorio: dentro del drawer siempre se ve completo. */
+  .sidebar[data-collapsed="true"] {
+    width: 85%;
+    max-width: 320px;
+  }
+  .sidebar[data-collapsed="true"] .sidebar-brand,
+  .sidebar[data-collapsed="true"] .sidebar-link-text {
+    display: block;
+  }
+  .sidebar[data-collapsed="true"] .sidebar-link {
+    grid-template-columns: 1.375rem minmax(0, 1fr);
+    justify-items: stretch;
+    padding: 0.875rem 1rem;
+  }
+
+  .sidebar-mobile-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    width: 100%;
+    min-height: 44px;
+    margin-top: auto;
+    padding: 0.75rem;
+    background: var(--sidebar-surface);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: var(--radius);
+    color: var(--sidebar-text);
+    font-family: var(--font-heading);
+    font-weight: 500;
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+  .sidebar-mobile-close svg {
+    width: 1.2rem;
+    height: 1.2rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar,
+  .sidebar-overlay {
+    transition: none;
+  }
+}
+
+/* `max-width` en porcentaje se calcula sobre el ancho real disponible junto al sidebar
+   (`.app-content`/`.app-main` son flex:1, sin ancho fijo) — así el contenedor responde de verdad
+   al viewport en cualquier tamaño de pantalla, no solo por debajo del breakpoint móvil (antes
+   tenía un tope fijo de 960px que dejaba franjas vacías enormes en pantallas de escritorio). El
+   tope en píxeles (1400px) solo evita líneas de texto incómodamente largas en monitores ultra
+   anchos. */
+.app-shell {
+  max-width: min(1400px, 96%);
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem 4rem;
+}
+
+/* Variante de ancho completo (sin ningún tope) para vistas que necesitan todo el espacio
+   disponible junto al sidebar — ej. la tabla de revisión de la programación semanal. */
+.app-shell-wide {
+  max-width: none;
+  padding: 0 1.25rem 4rem;
+}
+
+.app-header {
+  margin-bottom: 1.5rem;
+}
+
+.app-header h1 {
+  font-size: 1.6rem;
+  color: var(--color-primary-dark);
+  margin: 0 0 0.25rem;
+}
+
+.app-header p {
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+/* Step indicator */
+.step-indicator {
+  display: flex;
+  list-style: none;
+  padding: 0;
+  margin: 0 0 2rem;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.step-indicator li {
+  flex: 1 1 120px;
+  min-width: 110px;
+}
+
+.step-indicator button {
+  width: 100%;
+  min-height: 2.75rem;
+  border: 1px solid transparent;
+  background: var(--color-surface);
+  box-shadow: var(--neu-1);
+  border-radius: var(--radius);
+  padding: 0.5rem 0.6rem;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  transition: box-shadow 0.16s var(--ease-standard), border-color 0.16s var(--ease-standard);
+}
+
+.step-indicator button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  box-shadow: none;
+}
+
+.step-indicator .step-number {
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-surface-alt);
+  box-shadow: var(--neu-pressed-sm);
+  color: var(--color-text-muted);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.step-indicator li[data-state="active"] button {
+  border-color: var(--color-secondary);
+  box-shadow: var(--neu-pressed);
+}
+.step-indicator li[data-state="active"] .step-number {
+  background: var(--color-secondary);
+  color: #fff;
+}
+.step-indicator li[data-state="done"] .step-number {
+  background: var(--color-success);
+  color: #fff;
+}
+
+/* Card / panel — superficie neumórfica elevada (nivel 2): "moldeada" del mismo material que el
+   fondo, sin borde duro; la profundidad la da el par de sombras clara/oscura, no un contorno. */
+.panel {
+  background: var(--color-surface);
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  box-shadow: var(--neu-2);
+  margin-bottom: 1.5rem;
+}
+
+.panel h2 {
+  margin-top: 0;
+  color: var(--color-primary-dark);
+  font-size: 1.2rem;
+}
+
+.field-group {
+  margin-bottom: 1.25rem;
+}
+
+.field-group label,
+.field-legend {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.4rem;
+}
+
+.field-hint {
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  margin-top: 0.3rem;
+}
+
+/* Campos de formulario: superficie "hundida" (sombra hacia adentro) — el neumorfismo reserva
+   este tratamiento para lo que el usuario RELLENA o PRESIONA, en contraste con las tarjetas
+   elevadas que solo contienen o agrupan. Min-height de 2.75rem en inputs de una línea cumple el
+   tamaño mínimo de área táctil (WCAG 2.5.8, ~44px) sin agrandar los campos de las tablas. */
+input[type="number"],
+input[type="text"],
+input[type="password"],
+input[type="email"],
+input[type="search"],
+textarea,
+select {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--neu-pressed-sm);
+  transition: box-shadow 0.15s var(--ease-standard), border-color 0.15s var(--ease-standard);
+}
+
+input[type="number"]:hover:not(:disabled):not(:focus),
+input[type="text"]:hover:not(:disabled):not(:focus),
+input[type="password"]:hover:not(:disabled):not(:focus),
+input[type="email"]:hover:not(:disabled):not(:focus),
+input[type="search"]:hover:not(:disabled):not(:focus),
+textarea:hover:not(:disabled):not(:focus),
+select:hover:not(:disabled):not(:focus) {
+  box-shadow: var(--neu-pressed);
+}
+
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  box-shadow: var(--neu-pressed-sm), var(--focus-ring);
+}
+
+input:disabled,
+textarea:disabled,
+select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow: none;
+  background: var(--color-surface-alt);
+}
+
+/* Validación cerca del campo: un input marcado inválido (ver aria-invalid en los formularios)
+   se distingue por color Y por un borde real, nunca solo por la sombra — el color solo no
+   basta (heurística de Nielsen #5 / WCAG "no depender únicamente del color"). */
+input[aria-invalid="true"],
+textarea[aria-invalid="true"],
+select[aria-invalid="true"] {
+  border-color: var(--color-danger);
+}
+
+textarea {
+  resize: vertical;
+}
+
+/* Buttons — significantes claros (Norman): toda superficie clicable es una forma redondeada
+   con relieve propio; el estado "presionado" (:active) invierte la sombra a hundida, imitando
+   un botón físico, y el foco de teclado siempre es visible además del cambio de sombra. Alto
+   mínimo de 2.75rem (~44px) para área táctil suficiente. */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 2.75rem;
+  padding: 0.6rem 1.1rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 0.95rem;
+  /* El recorte del rodillo vive aquí, no en `.btn-label`: la copia entrante es un
+     pseudo-elemento HIJO de la etiqueta, así que recortarla en la propia etiqueta la escondía
+     para siempre y el botón se veía vacío al pasar el ratón. */
+  overflow: hidden;
+  transition: background-color 0.16s var(--ease-standard), border-color 0.16s var(--ease-standard),
+    box-shadow 0.16s var(--ease-standard), transform 0.12s var(--ease-standard), color 0.16s var(--ease-standard);
+}
+
+/* Efecto de rodillo al hover: el texto visible sube y desaparece mientras una copia idéntica
+   entra desde abajo — el clip queda acotado a la caja del propio texto (`.btn-label`), nunca al
+   botón completo, para no afectar iconos u otros hijos que viajen junto al texto. Opt-in: un
+   botón sin `.btn-label` conserva el redondeo pero no anima nada (degradación seguridad). */
+.btn-label {
+  --btn-roll-gap: 0.85rem;
+  position: relative;
+  display: inline-block;
+  line-height: 1.2;
+  transition: transform 0.32s var(--ease-standard);
+}
+/* La copia entrante espera FUERA del botón (una altura de línea más el margen `--btn-roll-gap`),
+   donde `overflow: hidden` del botón la oculta. Al pasar el ratón, la etiqueta sube exactamente
+   esa misma distancia, así que la copia aterriza justo donde estaba el texto original y este sale
+   por el borde superior. */
+.btn-label::before {
+  content: attr(data-label);
+  position: absolute;
+  left: 0;
+  top: calc(100% + var(--btn-roll-gap));
+  width: 100%;
+}
+/* Solo se anima cuando el botón está activo: en un botón deshabilitado el rodillo dejaba el
+   texto fuera de la caja y la etiqueta parecía haber desaparecido. */
+.btn:hover:not(:disabled) .btn-label,
+.btn:focus-visible:not(:disabled) .btn-label {
+  transform: translateY(calc(-100% - var(--btn-roll-gap)));
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn-label {
+    transition: none;
+  }
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+/* data-loading: mismo marcado del botón (nunca se reemplaza por un spinner suelto), solo se
+   agrega un aro girando y se bloquea el clic — así el texto de la acción ("Guardar", "Generar…")
+   sigue visible, cumpliendo "visibilidad del estado del sistema" (Nielsen #1). */
+.btn[data-loading="true"] {
+  position: relative;
+  color: transparent !important;
+  pointer-events: none;
+}
+.btn[data-loading="true"]::after {
+  content: "";
+  position: absolute;
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  color: inherit;
+  animation: btn-spin 0.6s linear infinite;
+}
+@keyframes btn-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.btn-primary {
+  background: var(--color-primary);
+  color: #fff;
+  box-shadow: var(--neu-1);
+}
+.btn-primary[data-loading="true"] {
+  color: var(--color-primary) !important;
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--color-primary-dark);
+  box-shadow: var(--neu-2);
+  transform: translateY(-1px);
+}
+.btn-primary:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: var(--neu-pressed-sm);
+}
+
+.btn-secondary {
+  background: var(--color-surface);
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+  box-shadow: var(--neu-1);
+}
+.btn-secondary[data-loading="true"] {
+  color: var(--color-primary) !important;
+}
+.btn-secondary:hover:not(:disabled) {
+  background: var(--color-secondary-soft);
+  box-shadow: var(--neu-2);
+  transform: translateY(-1px);
+}
+.btn-secondary:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: var(--neu-pressed-sm);
+}
+
+/* Acciones destructivas: nunca dependen solo del color rojo — llevan además un borde visible
+   propio y, cuando el JSX ya trae un icono (TrashIcon, etc.), este se conserva; el color aquí
+   solo refuerza lo que el icono/etiqueta ya comunican. */
+.btn-danger {
+  background: var(--color-surface);
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+  box-shadow: var(--neu-1);
+}
+.btn-danger[data-loading="true"] {
+  color: var(--color-danger) !important;
+}
+.btn-danger:hover:not(:disabled) {
+  background: var(--color-danger-bg);
+  box-shadow: var(--neu-2);
+  transform: translateY(-1px);
+}
+.btn-danger:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: var(--neu-pressed-sm);
+}
+
+.btn-text {
+  background: transparent;
+  color: var(--color-secondary);
+  padding: 0.3rem 0.5rem;
+  min-height: 2.25rem;
+  box-shadow: none;
+}
+.btn-text:hover:not(:disabled) {
+  background: var(--color-secondary-soft);
+}
+.btn-text:active:not(:disabled) {
+  box-shadow: var(--neu-pressed-sm);
+}
+
+.actions-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  flex-wrap: wrap;
+}
+
+/* Dropzone: superficie hundida (recibe algo, como los inputs) con un borde punteado que además
+   funciona como significante (Norman) de "aquí se suelta/selecciona un archivo" incluso sin
+   leer el texto. El foco de teclado (dropzones son `role="button"`) usa el mismo anillo que el
+   resto de controles interactivos. */
+.dropzone {
+  border: 2px dashed var(--color-border);
+  border-radius: var(--radius);
+  padding: 2rem 1rem;
+  text-align: center;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  background: var(--color-surface);
+  box-shadow: var(--neu-pressed);
+  transition: border-color 0.15s var(--ease-standard), background-color 0.15s var(--ease-standard),
+    box-shadow 0.15s var(--ease-standard);
+}
+
+.dropzone:hover {
+  border-color: var(--color-secondary);
+}
+
+.dropzone:focus-visible {
+  border-color: var(--color-secondary);
+  box-shadow: var(--neu-pressed), var(--focus-ring);
+}
+
+.dropzone[data-active="true"] {
+  border-color: var(--color-secondary);
+  background: var(--color-secondary-soft);
+}
+
+.dropzone input[type="file"] {
+  display: none;
+}
+
+/* File list */
+.table-scroll {
+  margin-top: 1rem;
+  border-radius: var(--radius);
+  box-shadow: var(--neu-1);
+  /* Scroll horizontal propio (nunca la página completa) cuando la tabla no cabe — la información
+     de columnas no se pierde en pantallas angostas, solo se desplaza dentro de su contenedor. */
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.data-table th,
+.data-table td {
+  padding: 0.6rem 0.7rem;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.data-table th {
+  background: var(--color-surface-alt);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.data-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.data-table input,
+.data-table select {
+  font-size: 0.85rem;
+  padding: 0.35rem 0.5rem;
+}
+
+.file-list {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+}
+
+.file-item .file-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.file-item .file-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-item .file-sub {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+/* Los badges se quedan PLANOS a propósito (sin sombra neumórfica): son indicadores de estado
+   pequeños, no superficies con las que se interactúa — elevar todo, incluidas las etiquetas de
+   estado, rompería la jerarquía visual (una tarjeta debe leerse más "importante" que un badge
+   dentro de ella). Cada estado ya combina color + texto (nunca solo el color, ver heurística de
+   accesibilidad de color de Nielsen/WCAG). */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+.badge-ok {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+  border-color: color-mix(in srgb, var(--color-success) 30%, transparent);
+}
+.badge-warn {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+  border-color: color-mix(in srgb, var(--color-warning) 30%, transparent);
+}
+.badge-error {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+  border-color: color-mix(in srgb, var(--color-danger) 30%, transparent);
+}
+
+.progress-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--color-surface-alt);
+  box-shadow: var(--neu-pressed-sm);
+  overflow: hidden;
+  margin-top: 0.3rem;
+}
+.progress-bar > div {
+  height: 100%;
+  background: var(--color-secondary);
+  transition: width 0.3s var(--ease-standard);
+  position: relative;
+}
+.progress-bar > div[data-busy="true"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(
+    100deg,
+    transparent 20%,
+    rgba(255, 255, 255, 0.55) 50%,
+    transparent 80%
+  );
+  background-size: 200% 100%;
+  animation: progress-shimmer 1.3s linear infinite;
+}
+@keyframes progress-shimmer {
+  from {
+    background-position: 140% 0;
+  }
+  to {
+    background-position: -40% 0;
+  }
+}
+
+/* Toggle switch */
+/* `.field-group label` (línea ~423) tiene mayor especificidad que `.toggle-switch` solo (dos
+   clases contra una) y le gana el `display`, colapsando el track a ancho 0 dentro de un
+   .field-group — se repite aquí calificado con `.field-group` para ganar en especificidad. */
+.toggle-switch,
+.field-group .toggle-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  cursor: pointer;
+  user-select: none;
+}
+.toggle-switch input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+.toggle-track {
+  width: 42px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: var(--color-surface-alt);
+  box-shadow: var(--neu-pressed-sm);
+  position: relative;
+  transition: background-color 0.18s var(--ease-standard);
+}
+.toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--color-surface);
+  box-shadow: var(--neu-1);
+  transition: transform 0.2s var(--ease-standard);
+}
+.toggle-switch input:checked + .toggle-track {
+  background: var(--color-secondary);
+}
+.toggle-switch input:checked + .toggle-track .toggle-thumb {
+  transform: translateX(18px);
+}
+.toggle-switch input:focus-visible + .toggle-track {
+  box-shadow: var(--focus-ring);
+}
+.toggle-label-text {
+  font-weight: 600;
+}
+
+/* Option cards (level / session type) */
+.option-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.75rem;
+}
+
+.option-card {
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  padding: 1rem;
+  cursor: pointer;
+  background: var(--color-surface);
+  box-shadow: var(--neu-1);
+  text-align: left;
+  display: block;
+  transition: border-color 0.16s var(--ease-standard), box-shadow 0.16s var(--ease-standard),
+    background-color 0.16s var(--ease-standard);
+}
+
+.option-card:hover {
+  box-shadow: var(--neu-2);
+}
+
+/* Seleccionada = "presionada": misma metáfora que un botón activo — hundida en la superficie
+   en vez de otra elevación más (evita apilar sombras "elevadas" sobre "elevadas", que rompería
+   la ilusión neumórfica de una sola fuente de luz). */
+.option-card[data-selected="true"] {
+  border-color: var(--color-secondary);
+  box-shadow: var(--neu-pressed);
+  background: var(--color-secondary-soft);
+}
+.option-card[data-selected="true"]:hover {
+  box-shadow: var(--neu-pressed);
+}
+
+.option-card h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+  color: var(--color-primary-dark);
+}
+
+.option-card p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.preset-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.preset-btn {
+  border: 1px solid transparent;
+  background: var(--color-surface);
+  box-shadow: var(--neu-1);
+  border-radius: 999px;
+  padding: 0.35rem 0.9rem;
+  cursor: pointer;
+  font-weight: 600;
+  min-height: 2.25rem;
+  transition: box-shadow 0.16s var(--ease-standard), background-color 0.16s var(--ease-standard);
+}
+.preset-btn:hover {
+  box-shadow: var(--neu-2);
+}
+.preset-btn[data-selected="true"] {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  box-shadow: var(--neu-pressed-sm);
+  color: #fff;
+}
+
+/* Banners */
+.banner {
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  margin-bottom: 1rem;
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+}
+.banner-error {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+  border: 1px solid var(--color-danger-border);
+}
+.banner-warning {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+  border: 1px solid var(--color-warning-border);
+}
+.banner-info {
+  background: var(--color-info-bg);
+  color: var(--color-primary-dark);
+  border: 1px solid var(--color-info-border);
+}
+
+.banner-title {
+  display: block;
+  margin-bottom: 0.15rem;
+}
+
+/* Slide editor */
+.slide-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.slide-card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  background: var(--color-surface);
+}
+
+.slide-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.slide-card-header .type-badge {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.slide-toolbar {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.bullet-row {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 0.4rem;
+  align-items: flex-start;
+}
+
+.bullet-row textarea {
+  flex: 1;
+}
+
+.source-refs {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  margin-top: 0.5rem;
+}
+
+.source-refs ul {
+  margin: 0.2rem 0 0;
+  padding-left: 1.1rem;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+/* Tarjetas neumórficas: superficie sólida moldeada del mismo color que el fondo, con sombra
+   clara+oscura simulando relieve — reemplaza el glassmorphism anterior (desenfoque + manchas
+   de color detrás), que entra en conflicto visual con la paleta casi monocromática que exige
+   la ilusión neumórfica. */
+.glass-card,
+.summary-item {
+  background: var(--color-surface);
+  border: 1px solid transparent;
+  box-shadow: var(--neu-1);
+}
+
+.summary-item {
+  border-radius: var(--radius);
+  padding: 0.75rem;
+}
+.summary-item .label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  letter-spacing: 0.03em;
+}
+.summary-item .value {
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--color-primary-dark);
+}
+
+/* Presentation preview — mimics the real exported UNIR deck (fixed light theme,
+   independent of the app's own light/dark mode, since the .pptx is always white/blue). */
+:root {
+  --preview-accent: #2671b4;
+  --preview-ink: #222222;
+  --preview-muted: #5a5a5a;
+  --preview-card-bg: #f5f9fc;
+  --preview-dark: #13233f;
+  --preview-border: #d9d9d9;
+}
+
+.preview-deck {
+  display: flex;
+  gap: 1.1rem;
+  overflow-x: auto;
+  padding: 0.35rem 0.25rem 1rem;
+  margin-top: 0.75rem;
+  scroll-snap-type: x proximity;
+}
+
+.preview-slide {
+  flex: 0 0 auto;
+  width: min(340px, 82vw);
+  aspect-ratio: 16 / 9;
+  background: #ffffff;
+  color: var(--preview-ink);
+  border: 1px solid var(--preview-border);
+  border-radius: 10px;
+  box-shadow: var(--shadow-md);
+  padding: 0.85rem 1rem 1.6rem;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  scroll-snap-align: start;
+  font-family: var(--font-body);
+}
+
+.preview-slide[data-dark="true"] {
+  background: var(--preview-dark);
+  color: #ffffff;
+}
+
+.preview-eyebrow {
+  font-family: var(--font-heading);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--preview-accent);
+}
+.preview-slide[data-dark="true"] .preview-eyebrow {
+  color: #ffffff;
+  opacity: 0.75;
+}
+
+.preview-slide-body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  margin-top: 0.4rem;
+}
+
+.preview-logo-badge {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.6rem;
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 0.6rem;
+  letter-spacing: 0.04em;
+  color: #9a9a9a;
+  border: 1px solid var(--preview-border);
+  border-radius: 6px;
+  padding: 0.12rem 0.5rem;
+  background: #f2f2f2;
+}
+.preview-slide[data-dark="true"] .preview-logo-badge {
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.preview-page-number {
+  position: absolute;
+  bottom: 0.5rem;
+  right: 0.55rem;
+  width: 1.5rem;
+  height: 1.15rem;
+  border-radius: 5px;
+  background: var(--preview-accent);
+  color: #d9d9d9;
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 0.65rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.preview-cover-title {
+  margin: 0.3rem 0 0.4rem;
+  font-family: var(--font-heading);
+  font-size: 1.2rem;
+  line-height: 1.2;
+  color: var(--preview-ink);
+}
+.preview-slide[data-dark="true"] .preview-cover-title {
+  color: #ffffff;
+}
+
+.preview-cover-subtitle {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--preview-muted);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+.preview-slide[data-dark="true"] .preview-cover-subtitle {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.preview-body-text {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--preview-ink);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+}
+
+.preview-closing-question {
+  margin-top: 0.5rem;
+  font-style: italic;
+  color: var(--preview-accent);
+}
+
+.preview-agenda {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  overflow: hidden;
+}
+.preview-agenda li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.78rem;
+  padding: 0.2rem 0;
+  border-bottom: 1px dashed var(--preview-border);
+}
+.preview-agenda li:last-child {
+  border-bottom: none;
+}
+.preview-agenda-num {
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 50%;
+  background: var(--preview-card-bg);
+  color: var(--preview-accent);
+  font-weight: 700;
+  font-size: 0.65rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.preview-agenda-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.preview-agenda-min {
+  color: var(--preview-muted);
+  flex-shrink: 0;
+}
+
+.preview-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.4rem;
+  height: 100%;
+  overflow: hidden;
+}
+
+.preview-mini-card {
+  border: 1px solid var(--preview-border);
+  border-radius: 6px;
+  padding: 0.4rem 0.5rem;
+  background: var(--preview-card-bg);
+  overflow: hidden;
+}
+.preview-mini-card strong {
+  display: block;
+  color: var(--preview-accent);
+  font-size: 0.72rem;
+  margin-bottom: 0.15rem;
+}
+.preview-mini-card p {
+  font-size: 0.68rem;
+  color: var(--preview-muted);
+  margin: 0;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+.preview-mini-card-dark {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+.preview-mini-card-dark strong {
+  color: #ffffff;
+}
+.preview-mini-card-dark p {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.preview-conclusion {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.78rem;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 20, 30, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  z-index: 100;
+  animation: modal-overlay-in 0.15s var(--ease-standard);
+}
+@keyframes modal-overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.modal-panel {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--neu-3);
+  padding: 1.75rem;
+  width: 100%;
+  max-width: 560px;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: modal-panel-in 0.18s var(--ease-standard);
+}
+@keyframes modal-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.modal-panel h2 {
+  margin-top: 0;
+  color: var(--color-primary-dark);
+}
+
+/* Topbar */
+/* Rejilla de tres zonas (izquierda / herramientas centradas / cuenta) en vez de un
+   space-between: así la franja de herramientas queda centrada respecto al viewport y no se
+   desplaza cuando el nombre del usuario cambia de largo. La sombra inferior separa el topbar del
+   contenido sin dibujar una línea flotante dura. */
+.topbar {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1.25rem;
+  min-height: 74px;
+  padding: 0.625rem 1.5rem;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  /* Sombra plana y corta en vez del par neumórfico: sobre el canvas del contenido, el resplandor
+     claro hacia arriba se veía como una segunda línea flotante encima del borde. Una sola caída
+     suave separa el topbar del área de trabajo sin duplicar el límite. */
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--neu-dark) 55%, transparent);
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  transition: background-color 0.2s var(--ease-standard), border-color 0.2s var(--ease-standard);
+}
+
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* La zona de cuenta respira más que la izquierda: el avatar y el nombre son la identidad de quien
+   usa la app, no un control más de la fila. */
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding-left: 0.25rem;
+}
+
+.topbar-right-divider {
+  width: 1px;
+  height: 1.6rem;
+  flex-shrink: 0;
+  background: var(--color-border);
+}
+
+/* Indicador de generaciones en segundo plano. Solo se monta cuando hay algo que informar, así que
+   no necesita un estado "vacío": su mera presencia ya significa "hay trabajo en curso o recién
+   terminado". */
+.jobs-indicator {
+  position: relative;
+}
+.jobs-indicator-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2.25rem;
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  box-shadow: var(--neu-1);
+  color: var(--color-text);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: box-shadow 0.16s var(--ease-standard), background-color 0.16s var(--ease-standard);
+}
+.jobs-indicator-trigger:hover {
+  background: var(--color-secondary-soft);
+  box-shadow: var(--neu-2);
+}
+.jobs-indicator-trigger[aria-expanded="true"] {
+  box-shadow: var(--neu-pressed-sm);
+}
+.jobs-indicator-trigger[data-busy="true"] {
+  border-color: color-mix(in srgb, var(--color-secondary) 45%, transparent);
+}
+.jobs-indicator-spinner {
+  width: 0.9rem;
+  height: 0.9rem;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--color-secondary) 30%, transparent);
+  border-top-color: var(--color-secondary);
+  animation: jobs-spin 0.8s linear infinite;
+}
+@keyframes jobs-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .jobs-indicator-spinner {
+    animation: none;
+  }
+}
+.jobs-indicator-icon {
+  display: inline-flex;
+  color: var(--color-success);
+}
+.jobs-indicator-icon svg {
+  width: 1rem;
+  height: 1rem;
+}
+.jobs-indicator-icon[data-error="true"] {
+  color: var(--color-danger);
+}
+.jobs-indicator-menu {
+  width: min(24rem, calc(100vw - 2rem));
+  max-height: 70vh;
+  overflow-y: auto;
+  padding: 0.75rem;
+}
+.jobs-indicator-hint {
+  margin: 0 0 0.6rem;
+}
+.jobs-indicator-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.jobs-indicator-item {
+  padding: 0.6rem 0.7rem;
+  border-radius: var(--radius);
+  background: var(--color-surface-alt);
+}
+.jobs-indicator-item[data-status="error"] {
+  background: var(--color-danger-bg);
+}
+.jobs-indicator-item-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.jobs-indicator-item-head strong {
+  font-size: 0.87rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.jobs-indicator-message {
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
+}
+.jobs-indicator-actions {
+  display: flex;
+  gap: 0.3rem;
+  margin-top: 0.35rem;
+}
+.jobs-indicator-actions .btn {
+  min-height: 2rem;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.8rem;
+}
+
+/*
+ * Las tres herramientas comparten UNA sola superficie elevada con UNA sola insignia
+ * "Próximamente" al final. Antes cada una era su propio botón con su propia insignia: tres
+ * elevaciones y tres etiquetas repitiendo el mismo mensaje, que es justo el ruido visual que
+ * el neumorfismo amplifica.
+ */
+.topbar-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  /* Que la zona central ceda antes que las zonas laterales (menú, tema, cuenta), que son
+     controles reales y no deben comprimirse ni quedar tapados. */
+  overflow: hidden;
+}
+
+.topbar-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.375rem;
+  max-width: 100%;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--neu-1);
+}
+.topbar-tools > * {
+  flex-shrink: 0;
+}
+/* Una sola indicación general para todo el grupo, con menos protagonismo que los nombres. */
+.topbar-tools-badge {
+  font-size: 0.7rem;
+  padding: 0.25rem 0.5rem;
+  margin-left: 0.25rem;
+  white-space: nowrap;
+}
+
+/* Dentro del grupo las herramientas son planas en reposo (la elevación ya la aporta el grupo) y
+   solo se hunden al pulsarlas. */
+.topbar-upcoming-btn {
+  min-height: 2.25rem;
+  padding: 0.4rem 0.7rem;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  border-radius: var(--radius-sm);
+  box-shadow: none;
+  white-space: nowrap;
+}
+.topbar-upcoming-btn:hover:not(:disabled) {
+  background: var(--color-secondary-soft);
+  box-shadow: none;
+}
+.topbar-upcoming-btn:active:not(:disabled) {
+  box-shadow: var(--neu-pressed-sm);
+}
+
+/* Jerarquía dentro del grupo: lo que YA funciona se lee con el texto y el icono en el color
+   principal; lo que todavía no existe queda en el gris apagado. Antes las tres compartían
+   exactamente el mismo peso y nada distinguía una herramienta real de una anunciada. */
+.topbar-tool-active {
+  color: var(--color-text);
+  font-weight: 600;
+}
+.topbar-tool-active svg {
+  color: var(--color-primary);
+}
+.topbar-tool-active:hover:not(:disabled) {
+  color: var(--color-primary-dark);
+}
+.topbar-upcoming-btn.topbar-tool-swap {
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+.topbar-upcoming-btn svg {
+  width: 1.1rem;
+  height: 1.1rem;
+  flex-shrink: 0;
+}
+
+/* Rodillo texto→icono: en reposo se lee el nombre de la herramienta; al pasar el cursor (o
+   enfocar con teclado) el texto sube y desaparece mientras el icono entra desde abajo — mismo
+   lenguaje de "rodillo" que `.btn-label`, aquí con dos elementos distintos (no una copia del
+   mismo texto) porque lo que cambia es texto→icono, no texto→texto. */
+.topbar-tool-stack {
+  position: relative;
+  display: inline-grid;
+  overflow: hidden;
+}
+.topbar-tool-text,
+.topbar-tool-icon {
+  grid-area: 1 / 1;
+  display: flex;
+  align-items: center;
+  transition: transform 0.32s var(--ease-standard), opacity 0.28s var(--ease-standard);
+}
+.topbar-tool-icon {
+  justify-content: center;
+  transform: translateY(100%);
+  opacity: 0;
+}
+.topbar-tool-swap:hover .topbar-tool-text,
+.topbar-tool-swap:focus-visible .topbar-tool-text {
+  transform: translateY(-100%);
+  opacity: 0;
+}
+.topbar-tool-swap:hover .topbar-tool-icon,
+.topbar-tool-swap:focus-visible .topbar-tool-icon {
+  transform: translateY(0);
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .topbar-tool-text,
+  .topbar-tool-icon {
+    transition: none;
+  }
+}
+
+/* Entre 1024 y 1280 px el correo del usuario es lo primero que sobra: se oculta y la cápsula
+   conserva avatar + nombre. */
+@media (max-width: 1280px) {
+  .user-menu-identity > span:last-child {
+    display: none;
+  }
+  /* La insignia es lo primero que sobra cuando el ancho aprieta: sin esto el grupo de
+     herramientas se desbordaba por debajo del control de tema. */
+  .topbar-tools-badge {
+    display: none;
+  }
+}
+
+/* Por debajo de 1024 px las herramientas se quedan solo con el icono (el nombre sigue
+   disponible como tooltip accesible), para que la franja nunca se desborde. */
+@media (max-width: 1024px) {
+  .topbar-upcoming-btn .topbar-tool-text {
+    display: none;
+  }
+  .topbar-upcoming-btn .topbar-tool-icon {
+    position: static;
+    transform: none;
+    opacity: 1;
+  }
+  .topbar-tools-badge {
+    display: none;
+  }
+}
+
+/* Móvil: las herramientas salen del topbar y pasan al menú de usuario (ver
+   .topbar-center-mobile-only), así que no se pierde acceso a ellas; la cápsula se reduce a
+   avatar + flecha. */
+@media (max-width: 640px) {
+  .topbar {
+    grid-template-columns: auto 1fr auto;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+  }
+  .topbar-center {
+    display: none;
+  }
+  .topbar-center-mobile-only {
+    display: flex !important;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding-bottom: 0.4rem;
+    margin-bottom: 0.4rem;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .user-menu-trigger {
+    max-width: none;
+  }
+  /* Tres clases: la regla base (.user-menu-trigger .user-menu-identity) aparece MÁS ABAJO en el
+     archivo, así que con la misma especificidad ganaría ella. */
+  .topbar .user-menu-trigger .user-menu-identity {
+    display: none;
+  }
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background-color 0.16s var(--ease-standard), color 0.16s var(--ease-standard),
+    box-shadow 0.16s var(--ease-standard);
+}
+.icon-btn svg {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+.icon-btn:hover {
+  background: var(--color-surface);
+  box-shadow: var(--neu-1);
+  color: var(--color-primary);
+}
+.icon-btn:active {
+  background: var(--color-surface);
+  box-shadow: var(--neu-pressed-sm);
+  color: var(--color-primary);
+}
+
+/* Controles del topbar (menú lateral, tema): elevados en reposo, hundidos al pulsar o mientras
+   el panel que abren está desplegado — el relieve comunica el estado, no solo el color. */
+.topbar .icon-btn {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--neu-1);
+  color: var(--color-text);
+}
+.topbar .icon-btn:hover {
+  box-shadow: var(--neu-2);
+  color: var(--color-primary);
+}
+.topbar .icon-btn:active,
+.topbar .icon-btn[aria-expanded="true"] {
+  box-shadow: var(--neu-pressed-sm);
+  color: var(--color-primary);
+}
+
+.icon-btn-menu[data-collapsed="true"] svg {
+  transform: rotate(90deg);
+}
+.icon-btn-menu svg {
+  transition: transform 0.22s var(--ease-standard);
+}
+
+.icon-btn-icon {
+  display: inline-flex;
+  animation: icon-pop 0.25s var(--ease-standard);
+}
+@keyframes icon-pop {
+  from {
+    opacity: 0;
+    transform: rotate(-90deg) scale(0.5);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.user-menu {
+  position: relative;
+}
+
+/* Cápsula neumórfica de cuenta: avatar + nombre + correo + flecha. El correo se trunca con
+   elipsis en vez de estirar la cápsula o desbordar el topbar. */
+.user-menu-trigger {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-height: 48px;
+  max-width: 16rem;
+  /* Más aire a la derecha que a la izquierda: el avatar ya trae su propio margen óptico redondo,
+     mientras que la flecha necesita separarse del borde para no verse pegada. */
+  padding: 0.375rem 0.9rem 0.375rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  box-shadow: var(--neu-1);
+  color: var(--color-text);
+  cursor: pointer;
+  transition: box-shadow 0.16s var(--ease-standard), background-color 0.16s var(--ease-standard);
+}
+.user-menu-trigger .user-menu-identity {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  line-height: 1.2;
+}
+.user-menu-trigger .user-menu-identity > span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.user-menu-trigger:hover {
+  background: var(--color-secondary-soft);
+  box-shadow: var(--neu-2);
+}
+.user-menu-trigger[aria-expanded="true"] {
+  box-shadow: var(--neu-pressed-sm);
+}
+.user-menu-trigger svg:last-child {
+  width: 0.9rem;
+  height: 0.9rem;
+  transition: transform 0.18s var(--ease-standard);
+}
+.user-menu-trigger[aria-expanded="true"] svg:last-child {
+  transform: rotate(180deg);
+}
+
+.user-avatar {
+  width: 2.15rem;
+  height: 2.15rem;
+  border-radius: 50%;
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.user-avatar svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.dropdown-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.5rem);
+  min-width: 190px;
+  background: var(--color-surface);
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  box-shadow: var(--neu-3);
+  padding: 0.4rem;
+  z-index: 40;
+  animation: dropdown-in 0.16s var(--ease-standard);
+}
+@keyframes dropdown-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.55rem 0.6rem;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: var(--color-text);
+  transition: background-color 0.14s var(--ease-standard);
+}
+.dropdown-item:hover,
+.dropdown-item:focus-visible {
+  background: var(--color-secondary-soft);
+}
+.dropdown-item svg {
+  width: 1.05rem;
+  height: 1.05rem;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+/* ============ Investigación asistida ============ */
+.topbar-tools-divider {
+  width: 1px;
+  align-self: stretch;
+  margin: 0.2rem 0.15rem;
+  background: var(--color-border);
+}
+
+.tool-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem 1rem;
+  margin-bottom: 1rem;
+}
+.tool-filters .field-group {
+  margin-bottom: 0;
+}
+
+.tool-results-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.tool-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 0.75rem;
+}
+/* Cada herramienta es una tarjeta, no una fila de tabla: a 65 registros con 8 columnas una
+   tabla obligaría a scroll horizontal en cualquier pantalla que no sea muy ancha. */
+.tool-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  box-shadow: var(--neu-1);
+}
+.tool-row-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.tool-row-head h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+.tool-access-badge {
+  flex-shrink: 0;
+  cursor: help;
+}
+.tool-row-desc {
+  margin: 0;
+  font-size: 0.87rem;
+  color: var(--color-text-muted);
+}
+.tool-row-meta {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.4rem 0.75rem;
+  font-size: 0.78rem;
+}
+.tool-row-meta div {
+  display: flex;
+  flex-direction: column;
+}
+.tool-row-meta dt {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+.tool-row-meta dd {
+  margin: 0;
+}
+.tool-row-action {
+  align-self: flex-start;
+  text-decoration: none;
+  margin-top: 0.25rem;
+}
+
+.tool-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1rem;
+  font-size: 0.85rem;
+}
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+}
+
+.research-result {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--color-border);
+}
+.query-list {
+  list-style: none;
+  margin: 0.5rem 0 1rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.query-list code {
+  display: block;
+  padding: 0.5rem 0.7rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-alt);
+  box-shadow: var(--neu-pressed-sm);
+  font-size: 0.82rem;
+  overflow-x: auto;
+}
+
+/* ============ Dashboard principal: atmósfera, cristal y estados vacíos ============ */
+/* Fondo degradado azul profundo, coherente con la pantalla de login — SOLO en modo oscuro (en
+   claro el Dashboard conserva el fondo liso de siempre, el degradado se pensó contra un canvas
+   oscuro). Los tonos se derivan de --color-primary/--color-secondary (no de un azul fijo) para
+   que siga la paleta activa (roja, vino, corporativa…) en vez de romper esas paletas. */
+html[data-theme="dark"] .dashboard-page {
+  padding-top: 1.75rem;
+  border-radius: var(--radius-lg);
+  background: radial-gradient(circle at 12% 0%, color-mix(in srgb, var(--color-primary) 22%, transparent), transparent 55%),
+    radial-gradient(circle at 100% 55%, color-mix(in srgb, var(--color-secondary) 16%, transparent), transparent 55%),
+    linear-gradient(165deg, color-mix(in srgb, var(--color-bg) 100%, black 6%) 0%,
+      color-mix(in srgb, var(--color-primary) 12%, var(--color-bg)) 45%,
+      color-mix(in srgb, var(--color-bg) 100%, black 3%) 100%);
+}
+
+/* Tarjetas KPI con efecto cristal — solo en oscuro (sobre el degradado de arriba); en claro
+   conservan el `.panel`/`.metric-card` neumórfico habitual, que ya funciona bien ahí. */
+html[data-theme="dark"] .dashboard-page .metric-card {
+  background: color-mix(in srgb, var(--color-surface) 40%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid color-mix(in srgb, var(--color-secondary) 20%, transparent);
+  box-shadow: none;
+  transition: border-color 0.2s var(--ease-standard), box-shadow 0.2s var(--ease-standard),
+    transform 0.15s var(--ease-standard);
+}
+html[data-theme="dark"] .dashboard-page .metric-card:hover {
+  border-color: color-mix(in srgb, var(--color-secondary) 55%, transparent);
+  box-shadow: 0 12px 32px color-mix(in srgb, var(--color-secondary) 16%, transparent);
+  transform: translateY(-2px);
+}
+html[data-theme="dark"] .dashboard-page .dashboard-primary-card {
+  background: color-mix(in srgb, var(--color-primary) 38%, transparent);
+  border-color: color-mix(in srgb, var(--color-secondary) 45%, transparent);
+}
+html[data-theme="dark"] .dashboard-page .dashboard-primary-card:hover {
+  background: color-mix(in srgb, var(--color-primary) 48%, transparent);
+  border-color: color-mix(in srgb, var(--color-secondary) 70%, transparent);
+  box-shadow: 0 12px 34px color-mix(in srgb, var(--color-secondary) 22%, transparent);
+}
+/* Paneles normales (gráfica, histórico, actividad) también en cristal sobre el degradado. */
+html[data-theme="dark"] .dashboard-page > .dashboard-grid > .panel:not(.metric-card) {
+  background: color-mix(in srgb, var(--color-surface) 55%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid color-mix(in srgb, var(--color-secondary) 14%, transparent);
+}
+
+/* ============ Dashboard: retícula de 12 columnas ============ */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 1.5rem;
+  align-items: start;
+}
+.dashboard-grid > .panel {
+  margin-bottom: 0;
+}
+.dash-span-3 {
+  grid-column: span 3;
+}
+.dash-span-4 {
+  grid-column: span 4;
+}
+.dash-span-8 {
+  grid-column: span 8;
+}
+.dash-span-12 {
+  grid-column: span 12;
+}
+
+/* Tableta: dos columnas, gráficas a ancho completo. */
+@media (max-width: 1100px) {
+  .dash-span-3 {
+    grid-column: span 6;
+  }
+  .dash-span-4,
+  .dash-span-8 {
+    grid-column: span 12;
+  }
+}
+/* Móvil: una sola columna, sin scroll horizontal. */
+@media (max-width: 640px) {
+  .dashboard-grid {
+    gap: 1rem;
+  }
+  .dash-span-3,
+  .dash-span-4,
+  .dash-span-8 {
+    grid-column: span 12;
+  }
+}
+
+/* Icono grande a la izquierda + columna de texto (valor arriba, etiqueta debajo) a la derecha —
+   mismo patrón que la referencia de diseño compartida. */
+.metric-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 1.25rem;
+}
+.metric-card-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-secondary) 14%, transparent);
+  color: var(--color-secondary);
+  flex-shrink: 0;
+}
+.metric-card-icon svg {
+  width: 1.4rem;
+  height: 1.4rem;
+}
+.dashboard-primary-card .metric-card-icon {
+  background: color-mix(in srgb, white 22%, transparent);
+  color: inherit;
+}
+.metric-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+.metric-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+.metric-value {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 2rem;
+  line-height: 1.1;
+  color: var(--color-primary-dark);
+}
+
+/* Insignia "+" flotante en la esquina superior derecha — solo la tarjeta de "Asignaturas
+   activas" la usa, como acceso directo para crear una asignatura sin salir del Dashboard.
+   Deliberadamente más pequeña que el icono principal: es una acción secundaria, no el icono
+   representativo de la tarjeta. */
+.metric-card-quick-add {
+  position: absolute;
+  top: 0.85rem;
+  right: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 999px;
+  border: none;
+  background: color-mix(in srgb, var(--color-secondary) 16%, transparent);
+  color: var(--color-secondary);
+  cursor: pointer;
+  transition: background-color 0.16s var(--ease-standard), transform 0.16s var(--ease-standard),
+    box-shadow 0.16s var(--ease-standard);
+}
+.metric-card-quick-add svg {
+  width: 1.05rem;
+  height: 1.05rem;
+}
+.metric-card-quick-add:hover {
+  background: color-mix(in srgb, var(--color-secondary) 34%, transparent);
+  transform: scale(1.1);
+}
+.metric-card-quick-add:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.dashboard-primary-card .metric-card-quick-add {
+  background: color-mix(in srgb, white 22%, transparent);
+  color: inherit;
+}
+.dashboard-primary-card .metric-card-quick-add:hover {
+  background: color-mix(in srgb, white 34%, transparent);
+}
+
+/* Tarjeta destacada: usa el color principal de la paleta activa como fondo. El color de TEXTO no
+   se fija aquí — lo calcula el componente sobre el fondo real y lo aplica en línea, porque cuál
+   de los dos candidatos (claro u oscuro) alcanza 4.5:1 depende de la paleta. */
+.dashboard-primary-card {
+  background: var(--color-primary);
+  border-color: color-mix(in srgb, var(--color-primary) 70%, black);
+  box-shadow: var(--neu-2);
+  transition: box-shadow 0.16s var(--ease-standard), background-color 0.2s var(--ease-standard);
+}
+.dashboard-primary-card .metric-label,
+.dashboard-primary-card .metric-value,
+.dashboard-primary-card .field-hint {
+  color: inherit;
+}
+.dashboard-primary-card .metric-label {
+  opacity: 0.85;
+}
+.dashboard-primary-card:hover {
+  background: color-mix(in srgb, var(--color-primary) 88%, white);
+  box-shadow: var(--neu-3);
+}
+.dashboard-primary-card:focus-within {
+  box-shadow: var(--neu-2), var(--focus-ring);
+}
+
+/* Estado de carga: mismo tono que la superficie, para no mostrar ceros falsos mientras llega
+   el dato real. */
+.skeleton-block {
+  height: 120px;
+  border-radius: var(--radius);
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-alt) 25%,
+    color-mix(in srgb, var(--color-surface-alt) 60%, var(--color-surface)) 50%,
+    var(--color-surface-alt) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s linear infinite;
+}
+@keyframes skeleton-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.chart-axis {
+  display: flex;
+  justify-content: space-around;
+  margin-top: 0.4rem;
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+}
+
+.donut-figure {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  align-items: center;
+}
+.donut-svg {
+  width: 100%;
+  max-width: 190px;
+  height: auto;
+  transform: rotate(-90deg);
+}
+.donut-total {
+  font-size: 6px;
+  font-weight: 700;
+  fill: var(--color-text);
+  transform: rotate(90deg);
+  transform-origin: 21px 21px;
+  font-family: var(--font-heading);
+}
+.donut-caption {
+  font-size: 2.4px;
+  fill: var(--color-text-muted);
+  transform: rotate(90deg);
+  transform-origin: 21px 21px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.chart-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+}
+.chart-legend li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.chart-swatch {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.chart-legend-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chart-legend-value {
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+/* Histórico compacto: nombre + meta a la izquierda, fecha y acciones alineadas a la derecha. */
+.materia-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.materia-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  box-shadow: var(--neu-1);
+}
+.materia-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+.materia-row-main strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.materia-row-date {
+  margin: 0;
+  white-space: nowrap;
+}
+/* Acciones por materia: texto + icono en escritorio, solo icono en pantallas angostas (el
+   nombre accesible y el tooltip se conservan siempre). */
+.materia-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+}
+.materia-action {
+  gap: 0.35rem;
+  min-height: 44px;
+  padding: 0.4rem 0.6rem;
+}
+.materia-action svg {
+  width: 1.05rem;
+  height: 1.05rem;
+  flex-shrink: 0;
+}
+.materia-action-danger {
+  color: var(--color-danger);
+}
+.materia-action-danger:hover:not(:disabled) {
+  background: var(--color-danger-bg);
+}
+@media (max-width: 900px) {
+  .materia-action-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  .materia-action {
+    padding: 0.4rem;
+  }
+}
+
+.materia-row-confirm {
+  grid-column: 1 / -1;
+  margin: 0.6rem 0 0;
+  padding: 0.75rem;
+}
+@media (max-width: 520px) {
+  .materia-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .materia-row-date {
+    grid-column: 1 / -1;
+  }
+}
+
+.activity-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.activity-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+.activity-title {
+  font-weight: 600;
+  font-size: 0.9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Lista de actividad reciente moderna: icono de estado + separadores tenues entre filas, en vez
+   de una lista de texto plano. */
+.activity-list--modern {
+  gap: 0;
+}
+.activity-list--modern li {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 0.1rem;
+}
+.activity-list--modern li + li {
+  border-top: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+}
+.activity-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-secondary) 14%, transparent);
+  color: var(--color-secondary);
+  flex-shrink: 0;
+}
+.activity-icon svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+.activity-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+/* Pestañas de la página de Configuración — mismos tokens y estados que el resto (elevada en
+   reposo, hundida cuando está activa), para que no parezca otro sistema. */
+.config-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 1.5rem;
+}
+.config-tab {
+  min-height: 2.75rem;
+  padding: 0.55rem 1rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  box-shadow: var(--neu-1);
+  color: var(--color-text);
+  font-family: var(--font-heading);
+  font-weight: 500;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: box-shadow 0.16s var(--ease-standard), background-color 0.16s var(--ease-standard);
+}
+.config-tab:hover {
+  box-shadow: var(--neu-2);
+}
+.config-tab[data-active="true"] {
+  background: var(--color-secondary-soft);
+  border-color: var(--color-secondary);
+  box-shadow: var(--neu-pressed-sm);
+  color: var(--color-primary-dark);
+}
+
+/* Lista de pares etiqueta/valor para resúmenes (configuración efectiva del Calificador). */
+.data-summary {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+.data-summary li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.data-summary .label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Pantallas de autenticación (login, cambio obligatorio de contraseña) — corporativas y oscuras
+   por diseño, independientes del modo claro/oscuro elegido por el usuario (todavía no hay sesión
+   en ese punto). Redefine localmente el mismo set de tokens que ya usan `.panel`/`.btn`/inputs,
+   así que ninguna clase se reescribe: la cascada re-tematiza automáticamente todo lo que ya
+   existe, igual que hace `html[data-theme="dark"]` a nivel de toda la app.
+   Glassmorphism: fotografía institucional real de fondo con un velo azul profundo encima (para
+   que la tarjeta de cristal siga siendo legible) + tarjeta semitranslúcida con desenfoque, borde
+   luminoso y resplandor azul — ver `.auth-card` más abajo. */
+.auth-shell {
+  --color-bg: #020617;
+  --color-surface: #0f172a;
+  --color-surface-alt: #16273b;
+  --color-border: #23415e;
+  --color-text: #eef4fa;
+  --color-text-muted: #9db3c8;
+  --color-primary: #2563eb;
+  --color-primary-dark: #1d4ed8;
+  --color-primary-soft: #16283c;
+  --color-secondary: #3b82f6;
+  --color-secondary-soft: #16283c;
+  --color-danger: #f2685f;
+  --color-danger-bg: #341c1c;
+  --color-danger-border: #5c2e2b;
+  --color-success: #4caf7d;
+  --color-success-bg: #16311f;
+  --neu-light: rgba(255, 255, 255, 0.04);
+  --neu-dark: rgba(0, 0, 0, 0.6);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-6);
+  padding: var(--space-6) var(--space-4);
+  /* Fotografía real (public/images/backgrounds/fondo.webp) con dos resplandores radiales azules
+     y un velo diagonal oscuro encima, para que el texto blanco y la tarjeta de cristal sigan
+     siendo legibles sin perder la foto. */
+  background: radial-gradient(circle at 18% 20%, rgba(37, 99, 235, 0.28), transparent 55%),
+    radial-gradient(circle at 82% 78%, rgba(29, 78, 216, 0.24), transparent 55%),
+    linear-gradient(100deg, rgba(2, 6, 23, 0.6) 0%, rgba(2, 6, 23, 0.75) 55%, rgba(2, 6, 23, 0.9) 100%),
+    url("/images/backgrounds/fondo.webp") center/cover no-repeat, var(--color-bg);
+  color: var(--color-text);
+}
+@media (min-width: 900px) {
+  .auth-shell {
+    flex-direction: row;
+    justify-content: center;
+    gap: 5vw;
+  }
+}
+
+/* Bloque de marca a gran escala, fuera de la tarjeta — le da al nombre del asistente el
+   protagonismo que antes tenía como una línea pequeña dentro del formulario. Centrado y apilado
+   sobre la tarjeta en pantallas angostas; a la izquierda de la tarjeta en pantallas anchas. */
+.auth-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  max-width: 480px;
+}
+@media (min-width: 900px) {
+  .auth-hero {
+    align-items: flex-start;
+    text-align: left;
+  }
+}
+.auth-hero-title {
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: 800;
+  line-height: 1.1;
+  margin: 0 0 var(--space-3);
+  color: #fff;
+  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.5);
+}
+.auth-hero-subtitle {
+  font-size: 1.05rem;
+  color: rgba(238, 244, 250, 0.85);
+  margin: 0;
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.45);
+}
+
+/* Tarjeta de cristal: única superficie de la app con translucidez + desenfoque real (el resto usa
+   `.panel` con fondo liso) — aquí se sienta sobre una fotografía real, así que un panel
+   neumórfico sólido se vería como un recorte pegado encima en vez de integrado con la escena. */
+.auth-card {
+  width: 100%;
+  max-width: 440px;
+  background: color-mix(in srgb, #020617 45%, transparent);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 0 40px rgba(37, 99, 235, 0.15), var(--neu-3);
+  padding: var(--space-6) var(--space-5);
+}
+
+/* Inputs translúcidos a juego con el cristal de la tarjeta — reemplazan el tratamiento
+   neumórfico "hundido" que usa el resto de la app (pensado para superficies lisas, no para
+   cristal) solo dentro de las pantallas de autenticación. */
+.auth-card input[type="text"],
+.auth-card input[type="email"],
+.auth-card input[type="password"] {
+  background: color-mix(in srgb, var(--color-surface) 50%, transparent);
+  border: 1px solid color-mix(in srgb, #334155 60%, transparent);
+  box-shadow: none;
+}
+.auth-card input[type="text"]:hover:not(:disabled):not(:focus),
+.auth-card input[type="email"]:hover:not(:disabled):not(:focus),
+.auth-card input[type="password"]:hover:not(:disabled):not(:focus) {
+  box-shadow: none;
+  border-color: color-mix(in srgb, #334155 90%, transparent);
+}
+.auth-card input[type="text"]:focus-visible,
+.auth-card input[type="email"]:focus-visible,
+.auth-card input[type="password"]:focus-visible {
+  border-color: var(--color-secondary);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+}
+
+/* Botón principal con resplandor azul al pasar el cursor — más vibrante que el hover
+   "oscurecido" que usa el resto de la app sobre fondos claros. */
+.auth-card .btn-primary:hover:not(:disabled) {
+  background: var(--color-secondary);
+  box-shadow: 0 0 24px rgba(59, 130, 246, 0.45);
+}
+
+.auth-logo-row {
+  display: flex;
+  justify-content: center;
+  margin-bottom: var(--space-5);
+}
+.auth-logo-row img {
+  height: 4rem;
+  width: auto;
+}
+
+/* Superficie clara y discreta para el logo real de UNIR (texto negro + eslogan azul) sobre
+   fondos oscuros — nunca se recolorea el archivo, se le da un área de protección propia en vez
+   de eso. Reutilizada en el sidebar y en las pantallas de autenticación (ver UnirLogo.tsx). */
+.unir-logo-chip {
+  display: inline-flex;
+  align-items: center;
+  background: #fff;
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.75rem;
+}
+.auth-logo-row .unir-logo-chip img {
+  height: 2.3rem;
+  width: auto;
+}
+
+.auth-title {
+  text-align: center;
+  margin: 0 0 var(--space-2);
+  font-size: 1.4rem;
+}
+.auth-subtitle {
+  text-align: center;
+  color: var(--color-text-muted);
+  margin: 0 0 var(--space-5);
+  font-size: 0.9rem;
+}
+.auth-footer {
+  text-align: center;
+  margin-top: var(--space-5);
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+.auth-footer a,
+.auth-footer button {
+  color: var(--color-primary);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  text-decoration: underline;
+}
+
+.password-field {
+  position: relative;
+}
+.password-field input {
+  padding-right: 2.6rem;
+}
+.password-field .icon-btn {
+  position: absolute;
+  right: 0.15rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2.25rem;
+  height: 2.25rem;
+}
+
+.field-error {
+  display: block;
+  margin-top: 0.3rem;
+  font-size: 0.8rem;
+  color: var(--color-danger);
+}
+
+.password-requirements {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.82rem;
+}
+.password-requirements li {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--color-text-muted);
+}
+.password-requirements li[data-met="true"] {
+  color: var(--color-success);
+}
+.password-requirements li svg {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+}
+
+.remember-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: -0.4rem 0 var(--space-4);
+  font-size: 0.85rem;
+}
+.remember-row label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+@media (max-width: 640px) {
+  .actions-row {
+    flex-direction: column;
+  }
+  .actions-row .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* ============================================================================
+   Manual de usuario — documentación dentro de la app. Reutiliza `.panel`,
+   `.data-summary` y `.badge` del resto del sistema; aquí solo viven las piezas
+   propias: el índice navegable, los pasos numerados y la comparación a dos
+   columnas de los modos de generación.
+   ============================================================================ */
+.manual-toc {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 1.5rem;
+}
+.manual-toc-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2.25rem;
+  padding: 0.4rem 0.8rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--color-surface);
+  box-shadow: var(--neu-1);
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.16s var(--ease-standard), box-shadow 0.16s var(--ease-standard);
+}
+.manual-toc-item svg {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+}
+.manual-toc-dot {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+.manual-toc-item:hover,
+.manual-toc-item:focus-visible {
+  color: var(--color-primary);
+  box-shadow: var(--neu-2);
+}
+.manual-toc-item[data-active="true"] {
+  color: var(--color-primary);
+  box-shadow: var(--neu-pressed-sm);
+}
+
+/* Ancla de scroll: sin esto el título de la sección queda pegado al borde superior
+   de la región desplazable al saltar desde el índice. */
+.manual .panel {
+  scroll-margin-top: 1rem;
+}
+.manual h3 {
+  margin: 1.4rem 0 0.5rem;
+  font-size: 1rem;
+}
+.manual h3:first-of-type {
+  margin-top: 1rem;
+}
+.manual code {
+  padding: 0.1rem 0.35rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-alt, var(--color-bg));
+  font-size: 0.88em;
+}
+
+.manual-steps {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+.manual-step {
+  display: grid;
+  grid-template-columns: 2rem 1fr;
+  gap: 0.75rem;
+  align-items: start;
+}
+.manual-step-number {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+}
+/* Solo el título del paso es un bloque propio. Sin el `>`, cualquier `<strong>` de énfasis
+   dentro del cuerpo se volvía bloque y partía la frase en tres líneas. */
+.manual-step-body > strong {
+  display: block;
+  margin-bottom: 0.15rem;
+}
+.manual-step-body > div {
+  color: var(--color-text-muted);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+.manual-steps-compact {
+  gap: 0.65rem;
+}
+.manual-steps-compact .manual-step-body > div {
+  font-size: 0.85rem;
+}
+
+.manual-compare {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.5rem;
+  margin-top: 0.5rem;
+}
+.manual-compare-col {
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  box-shadow: var(--neu-pressed-sm);
+}
+.manual-compare-col h3 {
+  margin-top: 0;
+}
+/* El cierre «Ventaja / Coste» necesita separarse del último paso, o se lee como si formara
+   parte de él. */
+.manual-compare-col .manual-steps + p {
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--color-border);
+}
+@media (max-width: 900px) {
+  .manual-compare {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+}
+
+/* Capturas de pantalla dentro del manual. Marco propio (no `.panel`) para que se lea como una
+   ilustración y no como otra tarjeta de contenido. */
+.manual-shot {
+  margin: 1rem 0 0;
+}
+.manual-shot img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--neu-1);
+}
+.manual-shot figcaption {
+  margin-top: 0.5rem;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+/* Dentro de un paso numerado la captura se alinea con el texto del paso, no con el número. */
+.manual-step-body .manual-shot {
+  margin-top: 0.75rem;
+}
+
+/* ---------------------------------------------------------------------------
+   Aviso de la versión de escaparate (components/DemoBoot.tsx). Es lo único que
+   esta copia añade a la interfaz: aparece cuando se pulsa algo que necesita el
+   backend real, para que la acción nunca se quede en silencio.
+   --------------------------------------------------------------------------- */
+.demo-aviso {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 1.25rem;
+  z-index: 200;
+  max-width: min(24rem, calc(100vw - 2.5rem));
+  padding: 0.9rem 2.4rem 0.9rem 1rem;
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-secondary);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.18);
+  animation: demo-aviso-entra 0.22s var(--ease-standard);
+}
+
+.demo-aviso strong {
+  display: block;
+  margin-bottom: 0.3rem;
+  font-family: var(--font-heading);
+  font-size: 0.9rem;
+  color: var(--color-secondary);
+}
+
+.demo-aviso p {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--color-text-secondary);
+}
+
+.demo-aviso button {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.6rem;
+  width: 1.6rem;
+  height: 1.6rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.demo-aviso button:hover {
+  background: var(--color-surface-muted);
+}
+
+@keyframes demo-aviso-entra {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .demo-aviso {
+    animation: none;
+  }
+}
